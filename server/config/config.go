@@ -29,7 +29,8 @@ func LoadConfig() *gateway.GatewayConfig {
 		option.WithAPIKey(anthropicAPIKey),
 	)
 
-	gateway := gateway.NewGateway(client, setupGatewayLogging())
+	logger := setupGatewayLogging()
+	gateway := gateway.NewGateway(client, logger)
 
 	return gateway
 }

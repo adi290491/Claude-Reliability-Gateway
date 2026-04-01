@@ -37,6 +37,7 @@ func CreateToolParams() []anthropic.ToolUnionParam {
 						"description": "Operator",
 					},
 				},
+				Required: []string{"Var1", "Var2", "Op"},
 			},
 		},
 	}

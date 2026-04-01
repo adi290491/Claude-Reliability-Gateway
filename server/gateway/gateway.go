@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -40,6 +39,7 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&userMessage); err != nil {
 		slog.Error("Failed to decode user message request", "error", err)
+		RespondWithError(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -54,7 +54,7 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	userResponse := UserResponse{}
 
 	for {
-		response, err := g.client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+		response, err := g.client.Messages.New(r.Context(), anthropic.MessageNewParams{
 			Model:     anthropic.ModelClaudeOpus4_5,
 			MaxTokens: 1024,
 			Messages:  messages,
@@ -62,7 +62,9 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if err != nil {
-			panic(err)
+			slog.Error("LLM Error", "error", err)
+			// RespondWithError(w, fmt.Errorf("received error from LLM: %v", err), http.StatusInternalServerError)
+			return
 		}
 
 		messages = append(messages, response.ToParam())
@@ -76,12 +78,15 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				result, err := t.HandleToolUse(block, variant)
 				if err != nil {
 					slog.Error("Error while executing tool", "error", err)
+					// RespondWithError(w, fmt.Errorf("error while executing tool: %v", err), http.StatusInternalServerError)
 					return
 				}
 
 				b, err := json.Marshal(result)
 				if err != nil {
-					panic(err)
+					slog.Error("Failed to decode user message request", "error", err)
+					RespondWithError(w, err, http.StatusInternalServerError)
+					return
 				}
 
 				println(string(b))

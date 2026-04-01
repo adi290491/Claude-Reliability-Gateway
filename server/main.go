@@ -9,18 +9,18 @@ import (
 	"github.com/adi290491/Claude-Reliability-Gateway/server/config"
 )
 
-func init() {
-	setupLogging()
-}
+// func init() {
+// 	setupLogging()
+// }
 
-func setupLogging() {
-	var logger *slog.Logger
-	logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
+// func setupLogging() {
+// 	var logger *slog.Logger
+// 	logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+// 		Level: slog.LevelDebug,
+// 	}))
 
-	slog.SetDefault(logger)
-}
+// 	slog.SetDefault(logger)
+// }
 
 func main() {
 
@@ -32,7 +32,7 @@ func main() {
 	s := &http.Server{
 		Addr:         ":8090",
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 120 * time.Second,
 		Handler:      mux,
 	}
 

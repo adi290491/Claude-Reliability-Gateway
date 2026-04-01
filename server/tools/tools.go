@@ -32,9 +32,9 @@ func HandleToolUse(block anthropic.ContentBlockUnion, variant anthropic.ToolUseB
 
 	case "calculateEquation":
 		var input struct {
-			Var1 int    `json:"var1"`
-			Var2 int    `json:"var2"`
-			Op   string `json:"op"`
+			Var1 int    `json:"Var1"`
+			Var2 int    `json:"Var2"`
+			Op   string `json:"Op"`
 		}
 
 		err := json.Unmarshal([]byte(variant.JSON.Input.Raw()), &input)
