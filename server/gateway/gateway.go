@@ -11,6 +11,10 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 )
 
+type UserResponse struct {
+	Response string `json:"response"`
+}
+
 type GatewayConfig struct {
 	// call anthropic
 	client anthropic.Client
@@ -46,6 +50,8 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	messages := []anthropic.MessageParam{
 		anthropic.NewUserMessage(anthropic.NewTextBlock(userMessage.UserMessage)),
 	}
+
+	userResponse := UserResponse{}
 
 	for {
 		response, err := g.client.Messages.New(context.TODO(), anthropic.MessageNewParams{
@@ -86,13 +92,14 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if len(toolResults) == 0 {
+			userResponse.Response = response.Content[0].Text
 			break
 		}
 
 		messages = append(messages, anthropic.NewUserMessage(toolResults...))
 	}
 
-	fmt.Printf("%+v", messages)
+	WriteJSON(w, &userResponse, http.StatusOK)
 }
 
 func color(s string) string {
