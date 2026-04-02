@@ -28,6 +28,8 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /message", gateway.ServeHTTP)
+	mux.HandleFunc("POST /debug/simulate-faulure", gateway.SimulateFailureHandler)
+	mux.HandleFunc("/metrics", gateway.MetricHandler)
 
 	s := &http.Server{
 		Addr:         ":8090",

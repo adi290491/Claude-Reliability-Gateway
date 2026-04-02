@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/adi290491/Claude-Reliability-Gateway/server/gateway"
+	"github.com/adi290491/Claude-Reliability-Gateway/server/tools"
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/joho/godotenv"
@@ -30,7 +31,10 @@ func LoadConfig() *gateway.GatewayConfig {
 	)
 
 	logger := setupGatewayLogging()
-	gateway := gateway.NewGateway(client, logger)
+
+	toolNames := tools.GetToolParamNames()
+
+	gateway := gateway.NewGateway(client, logger, toolNames)
 
 	return gateway
 }

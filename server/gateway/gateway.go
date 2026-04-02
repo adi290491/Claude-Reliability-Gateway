@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
+	"github.com/adi290491/Claude-Reliability-Gateway/server/circuitbreaker"
 	t "github.com/adi290491/Claude-Reliability-Gateway/server/tools"
 	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/sony/gobreaker/v2"
 )
 
 type UserResponse struct {
@@ -20,13 +23,24 @@ type GatewayConfig struct {
 	// logger
 	logger *slog.Logger
 	// circuit breaker
+	circuitBreakers       map[string]*gobreaker.CircuitBreaker[any]
+	defaultCircuitBreaker *gobreaker.CircuitBreaker[any]
 	// call tools
 }
 
-func NewGateway(anthropicClient anthropic.Client, logger *slog.Logger) *GatewayConfig {
+func NewGateway(anthropicClient anthropic.Client, logger *slog.Logger, toolNames []string) *GatewayConfig {
 	return &GatewayConfig{
 		client: anthropicClient,
 		logger: logger,
+		circuitBreakers: func() map[string]*gobreaker.CircuitBreaker[any] {
+
+			cbMap := make(map[string]*gobreaker.CircuitBreaker[any])
+			for _, name := range toolNames {
+				cbMap[name] = circuitbreaker.CreateCircuitBreaker(name)
+			}
+			return cbMap
+		}(),
+		defaultCircuitBreaker: circuitbreaker.CreateCircuitBreaker("default"),
 	}
 }
 
@@ -73,16 +87,36 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		for _, block := range response.Content {
 			switch variant := block.AsAny().(type) {
 			case anthropic.ToolUseBlock:
+
 				print(color("[user (" + block.Name + ")]: "))
 
-				result, err := t.HandleToolUse(block, variant)
-				if err != nil {
-					slog.Error("Error while executing tool", "error", err)
-					// RespondWithError(w, fmt.Errorf("error while executing tool: %v", err), http.StatusInternalServerError)
-					return
+				cb, exist := g.circuitBreakers[block.Name]
+
+				if !exist {
+					cb = g.defaultCircuitBreaker
 				}
 
-				b, err := json.Marshal(result)
+				start := time.Now()
+
+				cbResult, err := cb.Execute(func() (any, error) {
+					return t.HandleToolUse(block, variant)
+				})
+
+				duration := time.Since(start)
+
+				// result, err := t.HandleToolUse(block, variant)
+
+				if err != nil {
+					g.logger.Error("tool execution failed",
+						"duration in ms", duration.Milliseconds(), "error", err)
+
+					toolResults = append(toolResults, anthropic.NewToolResultBlock(block.ID, fmt.Sprintf("Tool %s is temporarily unavailable: %v", block.Name, err), true))
+					continue
+				}
+
+				g.logger.Info("tool executed successfully", "tool", block.Name, "duration in ms", duration.Milliseconds())
+
+				b, err := json.Marshal(cbResult)
 				if err != nil {
 					slog.Error("Failed to decode user message request", "error", err)
 					RespondWithError(w, err, http.StatusInternalServerError)
@@ -105,6 +139,40 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	WriteJSON(w, &userResponse, http.StatusOK)
+}
+
+func (g *GatewayConfig) SimulateFailureHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Tool        string  `json:"tool"`
+		FailureRate float64 `json:"failure_rate"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondWithError(w, err, http.StatusBadRequest)
+		return
+	}
+
+	t.FailureSimulation[req.Tool] = req.FailureRate
+
+	g.logger.Info("failure simulation updated",
+		"tool", req.Tool,
+		"failure_rate", req.FailureRate,
+	)
+
+	WriteJSON(w, map[string]string{"status": "ok"}, http.StatusOK)
+}
+
+func (g *GatewayConfig) MetricHandler(w http.ResponseWriter, r *http.Request) {
+	metrics := make(map[string]any)
+
+	for toolName, cb := range g.circuitBreakers {
+		metrics[toolName] = map[string]any{
+			"circuit_state": cb.State().String(),
+			"failure_rate":  t.FailureSimulation[toolName],
+		}
+	}
+
+	WriteJSON(w, metrics, http.StatusOK)
 }
 
 func color(s string) string {

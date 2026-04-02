@@ -1,0 +1,90 @@
+
+=== Check circuit state ===
+{
+  "calculateEquation": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  },
+  "getTicketPrices": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  }
+}
+
+=== TEST 2: Set getTicketPrices to 100% failure ===
+jq: parse error: Invalid numeric literal at line 1, column 8
+400
+
+=== Call 1 — should fail, circuit still CLOSED ===
+{
+  "response": "The price of a return ticket to Paris is **$899**."
+}
+
+=== Call 2 — should fail, circuit still CLOSED ===
+{
+  "response": "The price of a return ticket to Tokyo is $1400."
+}
+
+=== Call 3 — should fail, circuit OPENS after this ===
+{
+  "response": "The price of a return ticket to Berlin is $499."
+}
+
+=== Check circuit state — should show OPEN ===
+{
+  "calculateEquation": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  },
+  "getTicketPrices": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  }
+}
+
+=== Call 4 — circuit OPEN, tool call blocked, fallback returned ===
+{
+  "response": "The price of a return ticket to London is **$799**."
+}
+
+=== TEST 3: Calculator still works despite ticket prices being down ===
+{
+  "response": "42 multiplied by 7 equals **294**."
+}
+
+=== Restore ticket prices to normal ===
+404 page not found
+
+=== Wait 30 seconds for circuit to move to HALF-OPEN ===
+=== (or reduce Timeout to 5s in your CB config for faster testing) ===
+
+=== Check circuit state — should show HALF-OPEN ===
+{
+  "calculateEquation": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  },
+  "getTicketPrices": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  }
+}
+
+=== Call in HALF-OPEN — should succeed and close circuit ===
+{
+  "response": "The price of a return ticket to London is $799."
+}
+
+=== Check circuit state — should show CLOSED again ===
+{
+  "calculateEquation": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  },
+  "getTicketPrices": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  }
+}
+
+=== ALL TESTS COMPLETE ===

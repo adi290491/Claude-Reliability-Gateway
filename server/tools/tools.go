@@ -3,6 +3,7 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand/v2"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -15,7 +16,19 @@ var ticketPrices = map[string]string{
 	"berlin": "$499",
 }
 
+var FailureSimulation = map[string]float64{
+	"getTicketPrices":   0.0,
+	"calculateEquation": 0.0,
+}
+
 func HandleToolUse(block anthropic.ContentBlockUnion, variant anthropic.ToolUseBlock) (any, error) {
+
+	if rate, exist := FailureSimulation[block.Name]; exist {
+		if rand.Float64() < rate {
+			return nil, fmt.Errorf("simulated failure for tool %s", block.Name)
+		}
+	}
+
 	var response any
 	switch block.Name {
 	case "getTicketPrices":
