@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"strings"
+	"sync"
 
 	"github.com/anthropics/anthropic-sdk-go"
 )
@@ -16,14 +17,29 @@ var ticketPrices = map[string]string{
 	"berlin": "$499",
 }
 
-var FailureSimulation = map[string]float64{
-	"getTicketPrices":   0.0,
-	"calculateEquation": 0.0,
+var (
+	failureMu         sync.RWMutex
+	FailureSimulation = map[string]float64{
+		"getTicketPrices":   0.0,
+		"calculateEquation": 0.0,
+	}
+)
+
+func SetFailureRate(tool string, failureRate float64) {
+	failureMu.Lock()
+	defer failureMu.Unlock()
+	FailureSimulation[tool] = failureRate
+}
+
+func GetFailureRate(tool string) float64 {
+	failureMu.Lock()
+	defer failureMu.Unlock()
+	return FailureSimulation[tool]
 }
 
 func HandleToolUse(block anthropic.ContentBlockUnion, variant anthropic.ToolUseBlock) (any, error) {
 
-	if rate, exist := FailureSimulation[block.Name]; exist {
+	if rate := GetFailureRate(block.Name); rate > 0 {
 		if rand.Float64() < rate {
 			return nil, fmt.Errorf("simulated failure for tool %s", block.Name)
 		}
@@ -52,7 +68,7 @@ func HandleToolUse(block anthropic.ContentBlockUnion, variant anthropic.ToolUseB
 
 		err := json.Unmarshal([]byte(variant.JSON.Input.Raw()), &input)
 		if err != nil {
-			panic(err)
+			return nil, fmt.Errorf("failed to process input for calculateEquation: %v", err)
 		}
 
 		response = calculateEquation(input.Var1, input.Var2, input.Op)
@@ -81,28 +97,4 @@ func calculateEquation(var1, var2 int, op string) float64 {
 	}
 
 	return operators[op](var1, var2)
-}
-
-type CoordinateResponse struct {
-	Lat  float64 `json:"lat"`
-	Long float64 `json:"long"`
-}
-
-func getCoordinates(location string) CoordinateResponse {
-	return CoordinateResponse{
-		Long: -122.4194,
-		Lat:  37.7749,
-	}
-}
-
-type WeatherResponse struct {
-	Unit        string  `json:"unit"`
-	Temperature float64 `json:"temperature"`
-}
-
-func getWeather(lat, long float64, unit string) WeatherResponse {
-	return WeatherResponse{
-		Unit:        "fahrenheit",
-		Temperature: 122,
-	}
 }

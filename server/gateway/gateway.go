@@ -152,7 +152,8 @@ func (g *GatewayConfig) SimulateFailureHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	t.FailureSimulation[req.Tool] = req.FailureRate
+	// t.FailureSimulation[req.Tool] = req.FailureRate
+	t.SetFailureRate(req.Tool, req.FailureRate)
 
 	g.logger.Info("failure simulation updated",
 		"tool", req.Tool,

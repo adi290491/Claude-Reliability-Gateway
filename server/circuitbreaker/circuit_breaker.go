@@ -10,33 +10,23 @@ import (
 func CreateCircuitBreaker(toolName string) *gobreaker.CircuitBreaker[any] {
 
 	var st gobreaker.Settings
-	st.Name = toolName
-	st.MaxRequests = 8
-	st.Interval = 10 * time.Second
+	st.Name = toolName             // identifier of the circuit breaker
+	st.MaxRequests = 1             // max no of requests in HALF OPEN state
+	st.Interval = 60 * time.Second // rolling window for counting failures in the closed state
+	st.Timeout = 5 * time.Second   // duration after which circuit breaker moves from OPEN to HALF OPEN state
 
 	st.ReadyToTrip = func(counts gobreaker.Counts) bool {
-		failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
-		return counts.ConsecutiveFailures >= 3 && failureRatio >= 0.4
+		return counts.ConsecutiveFailures >= 3 // circuit breaker will be placed in OPEN state if this condition is true
 	}
-
-	st.Timeout = time.Millisecond
 
 	st.OnStateChange = func(name string, from gobreaker.State, to gobreaker.State) {
 
-		if to == gobreaker.StateOpen {
-			slog.Error("State Open")
-		}
-
-		if from == gobreaker.StateOpen && to == gobreaker.StateHalfOpen {
-			slog.Info("Going from Open to Half Open state")
-		}
-
-		if from == gobreaker.StateHalfOpen && to == gobreaker.StateClosed {
-			slog.Info("Going from Half Open to Closed state")
-		}
+		slog.Info("circuit breaker state changed",
+			"NAME:", name,
+			"FROM:", from.String(),
+			"TO:", to.String(),
+		)
 	}
 
-	cb := gobreaker.NewCircuitBreaker[any](st)
-
-	return cb
+	return gobreaker.NewCircuitBreaker[any](st)
 }

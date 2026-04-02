@@ -27,8 +27,9 @@ func main() {
 	gateway := config.LoadConfig()
 
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("POST /message", gateway.ServeHTTP)
-	mux.HandleFunc("POST /debug/simulate-faulure", gateway.SimulateFailureHandler)
+	mux.HandleFunc("POST /debug/simulate-failure", gateway.SimulateFailureHandler)
 	mux.HandleFunc("/metrics", gateway.MetricHandler)
 
 	s := &http.Server{

@@ -1,3 +1,6 @@
+{
+  "response": "Here's the breakdown for your trip to London:\n\n| Item | Price |\n|------|-------|\n| Ticket price per person | $799 |\n| Number of persons | 5 |\n| **Total price** | **$3,995** |\n\nThe total cost for return tickets to London for 5 persons is **$3,995**."
+}
 
 === Check circuit state ===
 {
@@ -12,22 +15,23 @@
 }
 
 === TEST 2: Set getTicketPrices to 100% failure ===
-jq: parse error: Invalid numeric literal at line 1, column 8
-400
+{
+  "status": "ok"
+}
 
 === Call 1 — should fail, circuit still CLOSED ===
 {
-  "response": "The price of a return ticket to Paris is **$899**."
+  "response": "I apologize, but I'm currently unable to retrieve the ticket price for Paris as the ticket pricing system is temporarily unavailable. Please try again in a few moments, or you could contact customer service directly for assistance with pricing information."
 }
 
 === Call 2 — should fail, circuit still CLOSED ===
 {
-  "response": "The price of a return ticket to Tokyo is $1400."
+  "response": "I apologize, but I'm currently unable to retrieve the ticket price to Tokyo as the pricing system appears to be temporarily unavailable. \n\nWould you like me to try again, or is there anything else I can help you with?"
 }
 
 === Call 3 — should fail, circuit OPENS after this ===
 {
-  "response": "The price of a return ticket to Berlin is $499."
+  "response": "I apologize, but I'm currently unable to retrieve the ticket price for Berlin as the ticketing system appears to be temporarily unavailable. \n\nWould you like me to try again, or is there anything else I can help you with?"
 }
 
 === Check circuit state — should show OPEN ===
@@ -37,14 +41,26 @@ jq: parse error: Invalid numeric literal at line 1, column 8
     "failure_rate": 0
   },
   "getTicketPrices": {
-    "circuit_state": "closed",
-    "failure_rate": 0
+    "circuit_state": "open",
+    "failure_rate": 1
   }
 }
 
 === Call 4 — circuit OPEN, tool call blocked, fallback returned ===
 {
-  "response": "The price of a return ticket to London is **$799**."
+  "response": "I apologize, but I'm currently unable to retrieve the ticket price to London as the ticket pricing service is temporarily unavailable. Please try again in a few minutes, or you can contact customer service directly for this information.\n\nIs there anything else I can help you with in the meantime?"
+}
+
+=== Check after Call 4 — still OPEN ===
+{
+  "calculateEquation": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  },
+  "getTicketPrices": {
+    "circuit_state": "half-open",
+    "failure_rate": 1
+  }
 }
 
 === TEST 3: Calculator still works despite ticket prices being down ===
@@ -53,10 +69,9 @@ jq: parse error: Invalid numeric literal at line 1, column 8
 }
 
 === Restore ticket prices to normal ===
-404 page not found
+{"status":"ok"}
 
-=== Wait 30 seconds for circuit to move to HALF-OPEN ===
-=== (or reduce Timeout to 5s in your CB config for faster testing) ===
+=== Wait 10 seconds for timeout to pass ===
 
 === Check circuit state — should show HALF-OPEN ===
 {
@@ -65,14 +80,14 @@ jq: parse error: Invalid numeric literal at line 1, column 8
     "failure_rate": 0
   },
   "getTicketPrices": {
-    "circuit_state": "closed",
+    "circuit_state": "half-open",
     "failure_rate": 0
   }
 }
 
 === Call in HALF-OPEN — should succeed and close circuit ===
 {
-  "response": "The price of a return ticket to London is $799."
+  "response": "The price of a return ticket to London is **$799**."
 }
 
 === Check circuit state — should show CLOSED again ===

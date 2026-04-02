@@ -3,7 +3,7 @@
 BASE_URL="http://localhost:8090"
 MSG="What is the ticket price to London for 5 persons?"
 
-curl -s -X POST "$BASEURL/message" \
+curl -s -X POST "$BASE_URL/message" \
   -H "Content-Type: application/json" \
   -d '{
     "message": "What is the ticket price to London for 5 persons?"
@@ -15,11 +15,11 @@ curl -s "$BASE_URL/metrics" | jq .
 
 echo ""
 echo "=== TEST 2: Set getTicketPrices to 100% failure ==="
-curl -s -X POST "$BASE_URL/debug/simulate-faulure" \
--H "Content-Type : application/json" \
+curl -s -X POST "$BASE_URL/debug/simulate-failure" \
+-H "Content-Type: application/json" \
 -d '{
-  "tool" : "getTicketPrices"
-  "failure_rate" : 1.0
+  "tool": "getTicketPrices",
+  "failure_rate": 1.0
 }' | jq .
 
 echo ""
@@ -51,6 +51,10 @@ curl -s -X POST "$BASE_URL/message" \
   -d '{"message": "What is the price of a ticket to London?"}' | jq .
 
 echo ""
+echo "=== Check after Call 4 — still OPEN ==="
+curl -s "$BASE_URL/metrics" | jq .
+
+echo ""
 echo "=== TEST 3: Calculator still works despite ticket prices being down ==="
 curl -s -X POST "$BASE_URL/message" \
   -H "Content-Type: application/json" \
@@ -63,9 +67,8 @@ curl -s -X POST "$BASE_URL/debug/simulate-failure" \
   -d '{"tool": "getTicketPrices", "failure_rate": 0.0}'
 
 echo ""
-echo "=== Wait 30 seconds for circuit to move to HALF-OPEN ==="
-echo "=== (or reduce Timeout to 5s in your CB config for faster testing) ==="
-sleep 30
+echo "=== Wait 10 seconds for timeout to pass ==="
+sleep 10
 
 echo ""
 echo "=== Check circuit state — should show HALF-OPEN ==="
