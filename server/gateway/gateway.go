@@ -10,6 +10,7 @@ import (
 	"github.com/adi290491/Claude-Reliability-Gateway/server/circuitbreaker"
 	t "github.com/adi290491/Claude-Reliability-Gateway/server/tools"
 	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/avast/retry-go"
 	"github.com/sony/gobreaker/v2"
 )
 
@@ -25,7 +26,6 @@ type GatewayConfig struct {
 	// circuit breaker
 	circuitBreakers       map[string]*gobreaker.CircuitBreaker[any]
 	defaultCircuitBreaker *gobreaker.CircuitBreaker[any]
-	// call tools
 }
 
 func NewGateway(anthropicClient anthropic.Client, logger *slog.Logger, toolNames []string) *GatewayConfig {
@@ -59,7 +59,7 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	tools := t.CreateToolParams()
 
-	println(color("[user]: ") + userMessage.UserMessage)
+	g.logger.Info("user message received", "message", userMessage.UserMessage)
 
 	messages := []anthropic.MessageParam{
 		anthropic.NewUserMessage(anthropic.NewTextBlock(userMessage.UserMessage)),
@@ -88,7 +88,7 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			switch variant := block.AsAny().(type) {
 			case anthropic.ToolUseBlock:
 
-				print(color("[user (" + block.Name + ")]: "))
+				g.logger.Info("tool invoked", "tool", block.Name)
 
 				cb, exist := g.circuitBreakers[block.Name]
 
@@ -97,16 +97,36 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 
 				start := time.Now()
-
-				cbResult, err := cb.Execute(func() (any, error) {
-					return t.HandleToolUse(block, variant)
-				})
+				var cbResult any
+				retryErr := retry.Do(
+					func() error {
+						cbResult, err = cb.Execute(func() (any, error) {
+							return t.HandleToolUse(block, variant)
+						})
+						return err
+					},
+					retry.Attempts(3),
+					retry.DelayType(retry.CombineDelay(retry.BackOffDelay, retry.RandomDelay)),
+					retry.Delay(100*time.Millisecond),
+					retry.MaxJitter(50*time.Millisecond),
+					retry.RetryIf(func(err error) bool {
+						return err != gobreaker.ErrOpenState
+					}),
+					retry.OnRetry(func(n uint, err error) {
+						g.logger.Warn("retrying tool execution",
+							"tool", block.Name,
+							"attempt", n+1,
+							"error", err,
+						)
+					}),
+				)
 
 				duration := time.Since(start)
 
-				if err != nil {
-					g.logger.Error("tool execution failed",
-						"duration in ms", duration.Milliseconds(), "error", err)
+				if retryErr != nil {
+					g.logger.Error("tool execution failed after retries",
+						"tool", block.Name,
+						"duration in ms", duration.Milliseconds(), "error", retryErr)
 
 					toolResults = append(toolResults, anthropic.NewToolResultBlock(block.ID, fmt.Sprintf("Tool %s is temporarily unavailable: %v", block.Name, err), true))
 					continue
@@ -121,7 +141,7 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				println(string(b))
+				g.logger.Debug("tool result", "tool", block.Name, "result", string(b))
 
 				toolResults = append(toolResults, anthropic.NewToolResultBlock(block.ID, string(b), false))
 			}
@@ -171,10 +191,6 @@ func (g *GatewayConfig) MetricHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	WriteJSON(w, metrics, http.StatusOK)
-}
-
-func color(s string) string {
-	return fmt.Sprintf("\033[1;%sm%s\033[0m", "33", s)
 }
 
 type ErrorResponse struct {

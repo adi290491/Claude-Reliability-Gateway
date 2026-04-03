@@ -3,6 +3,7 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math/rand/v2"
 	"strings"
 	"sync"
@@ -78,7 +79,7 @@ func HandleToolUse(block anthropic.ContentBlockUnion, variant anthropic.ToolUseB
 }
 
 func getTicketPrices(destinationCity string) string {
-	fmt.Printf("Tool called for city %s", destinationCity)
+	slog.Info("tool called", "tool", "getTicketPrices", "city", destinationCity)
 	var price string
 	if _, ok := ticketPrices[strings.ToLower(destinationCity)]; !ok {
 		return "Unknown ticket price"

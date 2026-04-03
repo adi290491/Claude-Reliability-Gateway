@@ -1,5 +1,5 @@
 {
-  "response": "Here's the breakdown for your trip to London:\n\n| Item | Price |\n|------|-------|\n| Ticket price per person | $799 |\n| Number of persons | 5 |\n| **Total price** | **$3,995** |\n\nThe total cost for return tickets to London for 5 persons is **$3,995**."
+  "response": "Here's the breakdown for your trip to London:\n\n| Item | Price |\n|------|-------|\n| Price per person (return ticket) | $799 |\n| Number of persons | 5 |\n| **Total price** | **$3,995** |\n\nThe total cost for 5 return tickets to London would be **$3,995**."
 }
 
 === Check circuit state ===
@@ -21,17 +21,17 @@
 
 === Call 1 — should fail, circuit still CLOSED ===
 {
-  "response": "I apologize, but I'm currently unable to retrieve the ticket price for Paris as the ticket pricing system is temporarily unavailable. Please try again in a few moments, or you could contact customer service directly for assistance with pricing information."
+  "response": "I apologize, but I'm currently unable to retrieve the ticket price for Paris as the ticket pricing system appears to be temporarily unavailable. \n\nWould you like me to try again, or is there anything else I can help you with in the meantime?"
 }
 
 === Call 2 — should fail, circuit still CLOSED ===
 {
-  "response": "I apologize, but I'm currently unable to retrieve the ticket price to Tokyo as the pricing system appears to be temporarily unavailable. \n\nWould you like me to try again, or is there anything else I can help you with?"
+  "response": "I apologize, but I'm currently unable to retrieve the ticket price to Tokyo as the pricing system is temporarily unavailable. Please try again in a few moments, or you can contact customer service directly for assistance with ticket prices.\n\nIs there anything else I can help you with?"
 }
 
 === Call 3 — should fail, circuit OPENS after this ===
 {
-  "response": "I apologize, but I'm currently unable to retrieve the ticket price for Berlin as the ticketing system appears to be temporarily unavailable. \n\nWould you like me to try again, or is there anything else I can help you with?"
+  "response": "I apologize, but I'm currently unable to retrieve the ticket price for Berlin as the ticket pricing system is temporarily unavailable. Please try again in a few moments, or you could contact customer service directly for pricing information."
 }
 
 === Check circuit state — should show OPEN ===
@@ -48,7 +48,7 @@
 
 === Call 4 — circuit OPEN, tool call blocked, fallback returned ===
 {
-  "response": "I apologize, but I'm currently unable to retrieve the ticket price to London as the ticket pricing service is temporarily unavailable. Please try again in a few minutes, or you can contact customer service directly for this information.\n\nIs there anything else I can help you with in the meantime?"
+  "response": "I apologize, but I'm currently unable to retrieve the ticket price for London. The system that provides ticket pricing information is temporarily unavailable. \n\nCould you please try again in a few minutes? Alternatively, if you have any other questions I can help with, feel free to ask!"
 }
 
 === Check after Call 4 — still OPEN ===
@@ -91,6 +91,87 @@
 }
 
 === Check circuit state — should show CLOSED again ===
+{
+  "calculateEquation": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  },
+  "getTicketPrices": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  }
+}
+
+=== TEST 4: Retry logic — set 50% failure rate ===
+{
+  "status": "ok"
+}
+
+=== Retry Call 1 — may succeed after retries ===
+{
+  "response": "The price of a return ticket to London is **$799**."
+}
+
+=== Retry Call 2 — observe retry logs in server output ===
+{
+  "response": "The price of a return ticket to Paris is **$899**."
+}
+
+=== Restore to normal ===
+{
+  "status": "ok"
+}
+
+=== TEST 5: Circuit opens after retries exhausted ===
+{
+  "status": "ok"
+}
+
+=== Exhausted Call 1 — 3 retries all fail ===
+{
+  "response": "I apologize, but I'm currently unable to retrieve the ticket price for Tokyo as the pricing system appears to be temporarily unavailable. \n\nWould you like me to try again, or is there anything else I can help you with?"
+}
+
+=== Exhausted Call 2 — 3 retries all fail ===
+{
+  "response": "I apologize, but I'm currently unable to retrieve the ticket price for Berlin as the ticket pricing system is temporarily unavailable. \n\nWould you like me to try again in a few moments, or is there anything else I can help you with?"
+}
+
+=== Exhausted Call 3 — circuit should open after this ===
+{
+  "response": "I apologize, but I'm currently unable to retrieve the ticket price for Paris as the pricing system is temporarily unavailable. Please try again in a few moments, or if you need immediate assistance, you may want to contact the booking service directly.\n\nIs there anything else I can help you with?"
+}
+
+=== Check state — should show OPEN ===
+{
+  "calculateEquation": {
+    "circuit_state": "closed",
+    "failure_rate": 0
+  },
+  "getTicketPrices": {
+    "circuit_state": "open",
+    "failure_rate": 1
+  }
+}
+
+=== TEST 6: Multi-tool request — both tools called ===
+{
+  "status": "ok"
+}
+
+=== Wait 10s for circuit to recover ===
+
+=== Multi-tool call — ticket price AND calculation ===
+{
+  "response": "Here's the summary:\n\n| Description | Amount |\n|-------------|--------|\n| Ticket price to London (per person) | $799 |\n| Number of persons | 3 |\n| **Total Cost** | **$2,397** |\n\nThe return ticket to London costs **$799 per person**, and for **3 persons**, the total cost would be **$2,397**."
+}
+
+=== TEST 7: Unknown tool falls back to default circuit breaker ===
+{
+  "response": "I don't have access to a weather tool or function that can provide current weather information. The tools available to me are for:\n\n1. **Getting ticket prices** - I can look up return ticket prices to destination cities\n2. **Calculating equations** - I can perform mathematical calculations\n\nTo get the current weather in Chicago, I'd recommend:\n- Checking a weather website like weather.com or accuweather.com\n- Using a weather app on your phone\n- Searching \"Chicago weather\" on Google or another search engine\n\nIs there anything else I can help you with, such as ticket prices to Chicago or a calculation?"
+}
+
+=== Check metrics — default CB should appear ===
 {
   "calculateEquation": {
     "circuit_state": "closed",

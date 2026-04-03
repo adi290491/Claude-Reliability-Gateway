@@ -22,9 +22,9 @@ func CreateCircuitBreaker(toolName string) *gobreaker.CircuitBreaker[any] {
 	st.OnStateChange = func(name string, from gobreaker.State, to gobreaker.State) {
 
 		slog.Info("circuit breaker state changed",
-			"NAME:", name,
-			"FROM:", from.String(),
-			"TO:", to.String(),
+			"NAME", name,
+			"FROM", from.String(),
+			"TO", to.String(),
 		)
 	}
 
