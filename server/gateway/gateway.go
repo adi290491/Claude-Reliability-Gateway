@@ -77,7 +77,7 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			slog.Error("LLM Error", "error", err)
-			// RespondWithError(w, fmt.Errorf("received error from LLM: %v", err), http.StatusInternalServerError)
+			RespondWithError(w, fmt.Errorf("received error from LLM: %v", err), http.StatusInternalServerError)
 			return
 		}
 
@@ -103,8 +103,6 @@ func (g *GatewayConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				})
 
 				duration := time.Since(start)
-
-				// result, err := t.HandleToolUse(block, variant)
 
 				if err != nil {
 					g.logger.Error("tool execution failed",
@@ -152,7 +150,6 @@ func (g *GatewayConfig) SimulateFailureHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// t.FailureSimulation[req.Tool] = req.FailureRate
 	t.SetFailureRate(req.Tool, req.FailureRate)
 
 	g.logger.Info("failure simulation updated",
