@@ -1,4 +1,4 @@
-# LLM Tool Use Reliability Gateway
+# Claude-Reliability-Gateway
 
 An HTTP middleware written in Go that makes AI agent tool use production-ready. Sits transparently between your application and the Anthropic API, adding circuit breakers, retry with exponential backoff and jitter, per-tool failure isolation, and structured observability — without changing your application code.
 
